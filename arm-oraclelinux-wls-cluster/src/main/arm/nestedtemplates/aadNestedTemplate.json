@@ -140,7 +140,7 @@
         },
         "keyVaultCustomTrustKeyStorePassPhrase": {
            "type": "securestring",
-           "defaultValue": "null",
+           "defaultValue": "",
            "metadata": {
               "description": "Weblogic Custom Trust Store Passphrase"
            }
