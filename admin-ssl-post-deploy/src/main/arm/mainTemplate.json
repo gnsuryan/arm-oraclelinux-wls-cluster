@@ -1,0 +1,310 @@
+{
+   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion": "1.0.0.0",
+   "parameters": {
+      "_artifactsLocation": {
+         "type": "string",
+         "metadata": {
+            "description": "The base URI where artifacts required by this template are located. When the template is deployed using the accompanying scripts, a private location in the subscription will be used and this value will be automatically generated."
+         },
+         "defaultValue": "${artifactsLocationBase}/arm-oraclelinux-wls-cluster/${git.tag}/admin-ssl-post-deploy/src/main/"
+      },
+      "_artifactsLocationSasToken": {
+         "type": "securestring",
+         "metadata": {
+            "description": "The sasToken required to access _artifactsLocation.  When the template is deployed using the accompanying scripts, a sasToken will be automatically generated. Use the defaultValue if the staging location is not secured."
+         },
+         "defaultValue": ""
+      },
+      "adminVMName": {
+         "type": "string",
+         "defaultValue": "adminVM",
+         "metadata": {
+            "description": "Admin Server hosting VM name."
+         }
+      },
+      "aadsSettings": {
+         "type": "object",
+         "defaultValue": {
+            "enable": false,
+            "certificateBase64String": "null"
+         },
+         "metadata": {
+            "description": "If enable is true, must specify the certificateBase64String, which is the based64 string of LADP client certificate that will be imported to trust store of WebLogic Server to enable SSL connection of AD provider."
+         }
+      },
+      "location": {
+         "type": "string",
+         "defaultValue": "[resourceGroup().location]",
+         "metadata": {
+            "description": "Location for all resources."
+         }
+      },
+      "wlsDomainName": {
+         "type": "string",
+         "defaultValue": "wlsd",
+         "metadata": {
+            "description": "Provide existing running Weblogic domain name"
+         }
+      },
+      "wlsUserName": {
+         "type": "string",
+         "metadata": {
+            "description": "Username for your Weblogic domain name"
+         }
+      },
+      "wlsPassword": {
+         "type": "securestring",
+         "metadata": {
+            "description": "Password for your Weblogic domain name"
+         }
+      },
+      "managedServerPrefix": {
+         "type": "string",
+         "defaultValue": "msp",
+         "metadata": {
+            "description": "Provide managed server prefix"
+         }
+      },
+      "numberOfExistingNodes": {
+         "type": "int",
+         "minValue": 1,
+         "maxValue": 20,
+         "metadata": {
+            "description": "The number of existing application managed servers."
+         }
+      },
+      "coherenceCacheSettings": {
+         "type": "object",
+         "defaultValue": {
+            "enable": false,
+            "numberOfCoherenceCacheInstances": 0
+         },
+         "metadata": {
+            "description": "If enable is true, must specify the numberOfCoherenceCacheInstances"
+         }
+      },
+      "customSSLSettings": {
+         "type": "object",
+         "defaultValue": {
+            "enable": false,
+            "customIdentityKeyStoreBase64String": "null",
+            "customIdentityKeyStorePassPhrase": "null",
+            "customIdentityKeyStoreType": "null",
+            "customTrustKeyStoreBase64String": "null",
+            "customTrustKeyStorePassPhrase": "null",
+            "customTrustKeyStoreType": "null",
+            "privateKeyAlias":"null",
+            "privateKeyPassPhrase":"null"
+         },
+         "metadata": {
+            "description": "If enable is true, must specify all customSSLSettings. customIdentityKeyStoreBase64String and customTrustKeyStoreBase64String are the custom identity and trust keystore data repectively, i.e., contents of identity.jks, trust.jks keystore files in base64 encoding. Similarly, all other custom ssl settings are also required to configure SSL settings"
+         }
+      },
+      "deploy_timestamp": {
+          "type": "string",
+          "defaultValue": "[utcNow('yyMMddHHmm')]",
+          "metadata": {
+              "description": "Timestamp required for uniquely identifying and executing custom extension script multiple times"
+         }
+      }
+   },
+   "variables": {
+      "const_hyphen": "-",
+      "const_managedVMPrefix": "[concat(parameters('managedServerPrefix'),'VM')]",
+      "const_coherenceVMPrefix": "[concat(parameters('managedServerPrefix'),'StorageVM')]",
+      "const_coherenceServerPrefix": "[concat(parameters('managedServerPrefix'),'Storage')]",
+      "const_wlsHome": "/u01/app/wls/install/oracle/middleware/oracle_home",
+      "const_wlsDomainPath": "/u01/domains",
+      "name_coherenceServerConfigurationTemplate": "configureSSLOnCoherenceServers.json",
+      "name_managedServerConfigurationTemplate": "configureSSLOnManagedServers.json",
+      "name_adminServerConfigurationTemplate": "configureSSLOnAdminServer.json"
+   },
+   "resources": [
+      {
+         "type": "Microsoft.Resources/deployments",
+         "apiVersion": "2020-06-01",
+         "name": "post.deploy.ssl.config.start",
+         "properties": {
+            "mode": "Incremental",
+            "template": {
+               "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+               "contentVersion": "1.0.0.0",
+               "resources": []
+            }
+         }
+      },
+      {
+        "name": "configureSSLForCoherenceServerTemplate",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2020-06-01",
+        "condition": "[and(parameters('customSSLSettings').enable,parameters('coherenceCacheSettings').enable)]",
+        "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+                "uri": "[uri(parameters('_artifactsLocation'), concat('arm/nestedtemplates/', variables('name_coherenceServerConfigurationTemplate')))]",
+                "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+                "_artifactsLocation": {
+                    "value": "[parameters('_artifactsLocation')]"
+                },
+                "_artifactsLocationSasToken": {
+                    "value": "[parameters('_artifactsLocationSasToken')]"
+                },
+                "adminVMName": {
+                    "value": "[parameters('adminVMName')]"
+                },
+                "location": {
+                    "value": "[parameters('location')]"
+                },
+                "wlsDomainName": {
+                    "value": "[parameters('wlsDomainName')]"
+                },
+                "wlsUserName": {
+                    "value": "[parameters('wlsUserName')]"
+                },
+                "wlsPassword": {
+                    "value": "[parameters('wlsPassword')]"
+                },
+                "managedServerPrefix": {
+                    "value": "[parameters('managedServerPrefix')]"
+                },
+                "coherenceCacheSettings": {
+                    "value": "[parameters('coherenceCacheSettings')]"
+                },
+                "customSSLSettings": {
+                    "value": "[parameters('customSSLSettings')]"
+                }
+             }
+          }
+      },
+      {
+        "name": "configureSSLForManagedServersTemplate",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2020-06-01",
+        "condition": "[parameters('customSSLSettings').enable]",
+        "dependsOn": [
+            "[resourceId('Microsoft.Resources/deployments', 'configureSSLForCoherenceServerTemplate')]"
+        ],
+        "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+                "uri": "[uri(parameters('_artifactsLocation'), concat('arm/nestedtemplates/', variables('name_managedServerConfigurationTemplate')))]",
+                "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+                "_artifactsLocation": {
+                    "value": "[parameters('_artifactsLocation')]"
+                },
+                "_artifactsLocationSasToken": {
+                    "value": "[parameters('_artifactsLocationSasToken')]"
+                },
+                "adminVMName": {
+                    "value": "[parameters('adminVMName')]"
+                },
+                "location": {
+                    "value": "[parameters('location')]"
+                },
+                "wlsDomainName": {
+                    "value": "[parameters('wlsDomainName')]"
+                },
+                "wlsUserName": {
+                    "value": "[parameters('wlsUserName')]"
+                },
+                "wlsPassword": {
+                    "value": "[parameters('wlsPassword')]"
+                },
+                "managedServerPrefix": {
+                    "value": "[parameters('managedServerPrefix')]"
+                },
+                "numberOfExistingNodes": {
+                    "value": "[parameters('numberOfExistingNodes')]"
+                },
+                "customSSLSettings": {
+                    "value": "[parameters('customSSLSettings')]"
+                }
+             }
+          }
+      },
+      {
+        "name": "configureSSLForAdminServerTemplate",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2020-06-01",
+        "condition": "[parameters('customSSLSettings').enable]",
+        "dependsOn": [
+            "[resourceId('Microsoft.Resources/deployments', 'configureSSLForCoherenceServerTemplate')]",
+            "[resourceId('Microsoft.Resources/deployments', 'configureSSLForManagedServersTemplate')]"
+        ],
+        "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+                "uri": "[uri(parameters('_artifactsLocation'), concat('arm/nestedtemplates/', variables('name_adminServerConfigurationTemplate')))]",
+                "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+                "_artifactsLocation": {
+                    "value": "[parameters('_artifactsLocation')]"
+                },
+                "_artifactsLocationSasToken": {
+                    "value": "[parameters('_artifactsLocationSasToken')]"
+                },
+                "adminVMName": {
+                    "value": "[parameters('adminVMName')]"
+                },
+                "location": {
+                    "value": "[parameters('location')]"
+                },
+                "wlsDomainName": {
+                    "value": "[parameters('wlsDomainName')]"
+                },
+                "wlsUserName": {
+                    "value": "[parameters('wlsUserName')]"
+                },
+                "wlsPassword": {
+                    "value": "[parameters('wlsPassword')]"
+                },
+                "managedServerPrefix": {
+                    "value": "[parameters('managedServerPrefix')]"
+                },
+                "numberOfExistingNodes": {
+                    "value": "[parameters('numberOfExistingNodes')]"
+                },
+                "aadsSettings" : {
+                    "value": "[parameters('aadsSettings')]"
+                },
+                "coherenceCacheSettings": {
+                    "value": "[parameters('coherenceCacheSettings')]"
+                },
+                "customSSLSettings": {
+                    "value": "[parameters('customSSLSettings')]"
+                }
+             }
+          }
+      },
+      {
+         "type": "Microsoft.Resources/deployments",
+         "apiVersion": "2020-06-01",
+         "name": "post.deploy.ssl.config.end",
+         "dependsOn": [
+            "[resourceId('Microsoft.Resources/deployments', 'configureSSLForCoherenceServerTemplate')]",
+            "[resourceId('Microsoft.Resources/deployments', 'configureSSLForManagedServersTemplate')]",
+            "[resourceId('Microsoft.Resources/deployments', 'configureSSLForAdminServerTemplate')]"
+         ],
+         "properties": {
+            "mode": "Incremental",
+            "template": {
+               "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+               "contentVersion": "1.0.0.0",
+               "resources": []
+            }
+         }
+      }
+   ],
+   "outputs": {
+      "wlsDomainLocation": {
+         "type": "string",
+         "value": "[concat('/u01/domains/', parameters('wlsDomainName'))]"
+      }
+   }
+}
