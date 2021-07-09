@@ -174,8 +174,8 @@ cat <<EOF>>$DOMAIN_PATH/admin-domain.yaml
             SSL:
                ListenPort: $wlsSSLAdminPort
                Enabled: true
-               HostnameVerificationIgnored: true
-               HostnameVerifier: 'None'
+#               HostnameVerificationIgnored: true
+#               HostnameVerifier: 'None'
 EOF
 
         if [ "${isCustomSSLEnabled}" == "true" ];
@@ -234,11 +234,11 @@ cat <<EOF>>$DOMAIN_PATH/managed-domain.yaml
 EOF
         fi
 
-cat <<EOF>>$DOMAIN_PATH/managed-domain.yaml
-           SSL:
-                HostnameVerificationIgnored: true
-                HostnameVerifier: 'None'
-EOF
+#cat <<EOF>>$DOMAIN_PATH/managed-domain.yaml
+#           SSL:
+#                HostnameVerificationIgnored: true
+#                HostnameVerifier: 'None'
+#EOF
 
         if [ "${isCustomSSLEnabled}" == "true" ];
         then
@@ -308,10 +308,10 @@ if isCustomSSLEnabled == 'true' :
 cd('/Servers/$wlsServerName/SSL/$wlsServerName')
 cmo.setServerPrivateKeyAlias('$serverPrivateKeyAlias')
 set('ServerPrivateKeyPassPhrase', '$serverPrivateKeyPassPhrase')
-cmo.setHostnameVerificationIgnored(true)
+#cmo.setHostnameVerificationIgnored(true)
 
 cd('/Servers/$wlsServerName//ServerStart/$wlsServerName')
-arguments = '-Dweblogic.Name=$wlsServerName  -Dweblogic.management.server=${SERVER_START_URL} -Dweblogic.security.SSL.ignoreHostnameVerification=true'
+arguments = '-Dweblogic.Name=$wlsServerName  -Dweblogic.management.server=${SERVER_START_URL} -Dweblogic.security.SSL.ignoreHostnameVerification=false'
 cmo.setArguments(arguments)
 save()
 resolve()
